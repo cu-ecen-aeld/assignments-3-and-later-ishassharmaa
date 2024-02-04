@@ -49,9 +49,10 @@ then
 	fi
 fi
 #uncommenting to remove prev builds
-echo "Removing the old writer utility and compiling as a native application"
-make clean
-make
+#echo "Removing the old writer utility and compiling as a native application"
+#make clean
+#make
+
 #using writer instead of writeer.sh
 for i in $( seq 1 $NUMFILES)
 do

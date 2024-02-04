@@ -1,4 +1,14 @@
 #include "systemcalls.h"
+#include <unistd.h>
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <stdlib.h>//for system
+#include <errno.h>
+#include <string.h>
+
 
 /**
  * @param cmd the command to execute with system()
@@ -16,8 +26,19 @@ bool do_system(const char *cmd)
  *   and return a boolean true if the system() call completed with success
  *   or false() if it returned a failure
 */
-
-    return true;
+	
+	int result;
+	
+	result = system(cmd);
+	
+	//false if error
+	if(result == -1)
+	{
+		return false;
+	}
+	
+	//true if sucess
+	return true; 
 }
 
 /**
@@ -40,6 +61,11 @@ bool do_exec(int count, ...)
     va_start(args, count);
     char * command[count+1];
     int i;
+    
+    pid_t pid;
+    int ret;
+    int status_of_wait;
+    
     for(i=0; i<count; i++)
     {
         command[i] = va_arg(args, char *);
@@ -58,7 +84,46 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
-
+	//call for fork
+	pid = fork();
+	
+	if( pid == -1)
+	{
+		//error fork failed
+		syslog(LOG_DEBUG,"Fork Failed");
+		return false;
+	}
+	else if (pid == 0)
+	{
+	//call for execv in the child process
+		ret = execv(command[0], command);
+		if (ret == -1) 
+		{
+			//perror ("execv");
+			exit (EXIT_FAILURE);
+		}
+	}
+	else
+	{
+	//call for wait in parent
+		
+		//wait and exit status in status_of_wait
+		waitpid(pid,&status_of_wait,0);
+		
+		//WIFEXITED, returns true if the process terminated normally
+		if (WIFEXITED (status_of_wait))
+		{
+			//check if exit status is non zero
+			if(WEXITSTATUS (status_of_wait))
+			{
+			  return false;
+			}
+		}
+		else 
+		{ return false; }
+	}
+	
+	
     va_end(args);
 
     return true;
@@ -75,6 +140,11 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
     va_start(args, count);
     char * command[count+1];
     int i;
+    
+    pid_t pid;
+    int ret;
+    int status_of_wait;
+    
     for(i=0; i<count; i++)
     {
         command[i] = va_arg(args, char *);
@@ -92,6 +162,60 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
  *   The rest of the behaviour is same as do_exec()
  *
 */
+	int fd = open(outputfile, (O_RDWR | O_CREAT | O_TRUNC),
+			(S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IROTH ));
+	
+	if ( fd < 0)
+	{
+		return false;
+	}
+	
+	//call for fork
+	pid = fork();
+	
+	if( pid == -1)
+	{
+		//error fork failed
+		syslog(LOG_DEBUG,"Fork Failed");
+		return false;
+	}
+	else if (pid == 0)
+	{
+	//call for execv in the child process
+		
+		if (dup2(fd, 1) < 0)
+		{
+			return false;
+		}
+		close(fd);
+		
+		ret = execv(command[0], command);
+		if (ret == -1) 
+		{
+			//perror ("execv");
+			exit (EXIT_FAILURE);
+		}
+	}
+	else
+	{
+	//call for wait in parent
+		
+		//wait and exit status in status_of_wait
+		waitpid(pid,&status_of_wait,0);
+		
+		//WIFEXITED, returns true if the process terminated normally
+		if (WIFEXITED (status_of_wait))
+		{
+			//check if exit status is non zero
+			if(WEXITSTATUS (status_of_wait))
+			{
+			  return false;
+			}
+		}
+		else 
+		{ return false; }
+	}
+
 
     va_end(args);
 
