@@ -90,7 +90,7 @@ bool do_exec(int count, ...)
 	if( pid == -1)
 	{
 		//error fork failed
-		syslog(LOG_DEBUG,"Fork Failed");
+		//syslog(LOG_DEBUG,"Fork Failed");
 		return false;
 	}
 	else if (pid == 0)
@@ -176,7 +176,7 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
 	if( pid == -1)
 	{
 		//error fork failed
-		syslog(LOG_DEBUG,"Fork Failed");
+		//syslog(LOG_DEBUG,"Fork Failed");
 		return false;
 	}
 	else if (pid == 0)
