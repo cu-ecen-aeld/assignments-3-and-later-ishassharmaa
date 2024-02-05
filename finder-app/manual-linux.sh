@@ -98,16 +98,16 @@ make CONFIG_PREFIX=${OUTDIR}/rootfs ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} 
 
 echo "Library dependencies"
 cd ${OUTDIR}/rootfs
-${CROSS_COMPILE}readelf -a bin/busybox | grep "program interpreter"
-${CROSS_COMPILE}readelf -a bin/busybox | grep "Shared library"
+#${CROSS_COMPILE}readelf -a bin/busybox | grep "program interpreter"
+#${CROSS_COMPILE}readelf -a bin/busybox | grep "Shared library"
 
 # TODO: Add library dependencies to rootfs
 #copy all the files that match the pattern, use *
 SYSROOT=$(${CROSS_COMPILE}gcc -print-sysroot)
-sudo cp ${SYSROOT}/lib/ld-linux-aarch64.so.* ${OUTDIR}/rootfs/lib
-sudo cp ${SYSROOT}/lib64/libc.so.* ${OUTDIR}/rootfs/lib64
-sudo cp ${SYSROOT}/lib64/libm.so.* ${OUTDIR}/rootfs/lib64
-sudo cp ${SYSROOT}/lib64/libresolv.so.* ${OUTDIR}/rootfs/lib64
+sudo cp ${SYSROOT}/lib/ld-linux-aarch64.so.1 ${OUTDIR}/rootfs/lib
+sudo cp ${SYSROOT}/lib64/libc.so.6 ${OUTDIR}/rootfs/lib64
+sudo cp ${SYSROOT}/lib64/libm.so.6 ${OUTDIR}/rootfs/lib64
+sudo cp ${SYSROOT}/lib64/libresolv.so.2 ${OUTDIR}/rootfs/lib64
 
 # TODO: Make device nodes
 cd "${OUTDIR}/rootfs"
