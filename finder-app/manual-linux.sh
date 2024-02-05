@@ -40,24 +40,29 @@ if [ ! -e ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ]; then
     # TODO: Add your kernel build steps here
     
     #deep clean the prev kernel
+    echo "clean prev kernel"
     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} mrproper
     
     #default config for "virt" dev board 
+    echo "default config for "virt" dev board "
     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} defconfig
     
     #building kernel image for booting with Qemu
+    echo "building kernel image for booting with Qemu"
     make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} all
     
     #building kernel image
-    #make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} modules
+    echo "building kernel image"
+    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} modules
       
     #building device tree
+    echo "building device tree"
     make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} dtbs
     
 fi
 
 echo "Adding the Image in outdir"
-#cp ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ${OUTDIR}
+cp ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ${OUTDIR}
 
 echo "Creating the staging directory for the root filesystem"
 cd "$OUTDIR"
