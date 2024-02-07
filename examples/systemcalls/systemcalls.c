@@ -37,6 +37,16 @@ bool do_system(const char *cmd)
 		return false;
 	}
 	
+	//error other than -1 for cmd
+	//based on if exited 
+	if(!WIFEXITED(result))
+    	{
+		if(WEXITSTATUS(result))
+		{
+			return false;
+		}
+    	}
+	
 	//true if sucess
 	return true; 
 }
@@ -167,6 +177,7 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
 	
 	if ( fd < 0)
 	{
+	 	va_end(args);
 		return false;
 	}
 	
@@ -177,6 +188,7 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
 	{
 		//error fork failed
 		//syslog(LOG_DEBUG,"Fork Failed");
+		 va_end(args);
 		return false;
 	}
 	else if (pid == 0)
@@ -185,6 +197,7 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
 		
 		if (dup2(fd, 1) < 0)
 		{
+		 	va_end(args);
 			return false;
 		}
 		close(fd);
@@ -193,6 +206,7 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
 		if (ret == -1) 
 		{
 			//perror ("execv");
+			 va_end(args);
 			exit (EXIT_FAILURE);
 		}
 	}
@@ -209,11 +223,15 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
 			//check if exit status is non zero
 			if(WEXITSTATUS (status_of_wait))
 			{
+			 va_end(args);
 			  return false;
 			}
 		}
 		else 
-		{ return false; }
+		{ 
+		 va_end(args);
+		 return false; 
+		 }
 	}
 
 
