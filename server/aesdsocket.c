@@ -49,7 +49,7 @@ void cleanup(void)
 	close(client_fd);
 	close(logfile_fd);
 	shutdown(socket_fd, SHUT_RDWR);
-	//remove(LOG_FILE);
+	remove(LOG_FILE);
 	exit(EXIT_SUCCESS);
 	
 }
@@ -99,7 +99,7 @@ void *get_in_addr(struct sockaddr *sa)
     return &(((struct sockaddr_in6*)sa)->sin6_addr);
 }
 
-
+//entry point
 int main(int argc, char *argv[])
 {
 	struct addrinfo hints, *servinfo, *p;
@@ -167,6 +167,7 @@ int main(int argc, char *argv[])
 		syslog(LOG_ERR, "getaddrinfo failed \n");
 		break;
     	}
+    	
     	if (servinfo == NULL)
     	{
     		syslog(LOG_ERR, "malloc for serverinfo failed \n");
@@ -184,20 +185,22 @@ int main(int argc, char *argv[])
 		    syslog(LOG_ERR,"Socket creation failed \n");
 		    break;
 		}
-
+    		//syslog(LOG_INFO, "socket creation sucess \n");
+		
 		if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) 
 		{
 		    syslog(LOG_ERR,"setsockopt failed \n");
 		    break;
 		}
-
+    		//syslog(LOG_INFO, "setsockopt sucess \n");
+    		
 		if (bind(socket_fd, p->ai_addr, p->ai_addrlen) == -1) 
 		{
 		    close(socket_fd);
 		    syslog(LOG_ERR,"server bind failed \n");
 		    break;
 		}
-
+		
     	}
     	
     	/* STEP 3:
@@ -279,6 +282,7 @@ int main(int argc, char *argv[])
 		Receives data over the connection and appends to file /var/tmp/aesdsocketdata, creating this file if it doesn’t exist.
 	*/
             
+		
             //move to the start of the file
             off_t seekset_to_beg = lseek(logfile_fd, 0, SEEK_SET);
 	    if(seekset_to_beg == -1)
@@ -286,6 +290,7 @@ int main(int argc, char *argv[])
 			syslog(LOG_ERR,"lseek failed \n");
 			break;
 		}
+
             
             do
             {
@@ -296,7 +301,6 @@ int main(int argc, char *argv[])
 			syslog (LOG_ERR, "receving of bytes failed \n");
 			break;
 		}
-		syslog (LOG_INFO,"read\n");
 		
 		//wrie to log file
 		status = write (logfile_fd, buf, recv_bytes);
@@ -305,46 +309,52 @@ int main(int argc, char *argv[])
 			syslog(LOG_ERR,"logging failed \n");
 			break;
 		}
-		syslog (LOG_INFO,"wrote\n");
+
 	     } while(buf[recv_bytes-1] != '\n');
             
             /* STEP 8:
            	 Returns the full content of /var/tmp/aesdsocketdata to the client as soon as the received data packet completes.
             */
             
+            //move to the start of the file
+            seekset_to_beg = lseek(logfile_fd, 0, SEEK_SET);
+	    if(seekset_to_beg == -1)
+		{
+			syslog(LOG_ERR,"lseek failed \n");
+			break;
+		}
+		
             do
             {
 		    bytes_read = read (logfile_fd, read_buf, BUFFER_LEN);
-		    syslog (LOG_INFO,"Read Buffer : \n%s",read_buf);
 		    if (bytes_read == -1)
 		    {
 		    	syslog(LOG_ERR,"logging file read failed \n");
 		    	break;
 		    }
-		    syslog (LOG_INFO,"read from log\n");
-		    syslog (LOG_INFO,"Bytes Read : %ld",bytes_read);
-		    syslog (LOG_INFO,"Read Buffer : \n%s",read_buf);
+		    //syslog (LOG_INFO,"read from log\n");
+		    //syslog (LOG_INFO,"Bytes Read : %ld",bytes_read);
+		    //syslog (LOG_INFO,"Read Buffer : \n%s",read_buf);
 		    
 		    bytes_sent = send (client_fd, read_buf, bytes_read, 0);
-		    syslog (LOG_INFO,"Bytes sent : %ld",bytes_sent);
 		    if (bytes_sent == -1)
 		    {
 		    	syslog(LOG_ERR,"send failed \n");
 		    	break;
 		    }
-		    syslog (LOG_INFO,"sent to client\n");
-		    syslog (LOG_INFO,"Bytes sent : %ld",bytes_sent);
-		    syslog (LOG_INFO,"sent read Buffer : \n%s",read_buf);
+		    //syslog (LOG_INFO,"sent to client\n");
+		    //syslog (LOG_INFO,"Bytes sent : %ld",bytes_sent);
+		    //syslog (LOG_INFO,"sent read Buffer : \n%s",read_buf);
 		    
-            }while(read_buf[bytes_sent-1] != '\n');
+            }while(read_buf[bytes_sent-1] != '\n'&& bytes_read >1);
             
             close(client_fd);
             syslog(LOG_INFO,"Closed connection from %s",s);
             
             }
            
-    	}while(0);
-    	cleanup();  
+    	}while(0);//exit	
+    	cleanup(); //cleanup after end
     	closelog();
 }
 
