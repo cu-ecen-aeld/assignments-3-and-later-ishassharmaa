@@ -40,6 +40,7 @@ int socket_fd;		//for server
 int client_fd; 	//for client
 int logfile_fd; 	//for output log file 
 volatile sig_atomic_t fatal_error_in_progress = 0;
+pid_t pid;
 
 //smooth cleaup and termination 
 void cleanup(void)
@@ -48,8 +49,9 @@ void cleanup(void)
 	close(client_fd);
 	close(logfile_fd);
 	shutdown(socket_fd, SHUT_RDWR);
-	remove(LOG_FILE);
+	//remove(LOG_FILE);
 	exit(EXIT_SUCCESS);
+	
 }
 
 //signal handler for sigint/sigterm
@@ -112,8 +114,8 @@ int main(int argc, char *argv[])
 	ssize_t recv_bytes = 0;
 	char buf[BUFFER_LEN];
 	char read_buf[BUFFER_LEN];
-	ssize_t bytes_read;
-	ssize_t bytes_sent;
+	ssize_t bytes_read =0;
+	ssize_t bytes_sent =0;
 	
 	if (argc == 2)
 	{
@@ -210,7 +212,7 @@ int main(int argc, char *argv[])
     	*/
     	if(daemon_flag)
     	{
-    		pid_t pid = fork();
+    		 pid = fork();
     		
     		if(pid <0)
     		{
@@ -294,6 +296,7 @@ int main(int argc, char *argv[])
 			syslog (LOG_ERR, "receving of bytes failed \n");
 			break;
 		}
+		syslog (LOG_INFO,"read\n");
 		
 		//wrie to log file
 		status = write (logfile_fd, buf, recv_bytes);
@@ -302,6 +305,7 @@ int main(int argc, char *argv[])
 			syslog(LOG_ERR,"logging failed \n");
 			break;
 		}
+		syslog (LOG_INFO,"wrote\n");
 	     } while(buf[recv_bytes-1] != '\n');
             
             /* STEP 8:
@@ -311,18 +315,27 @@ int main(int argc, char *argv[])
             do
             {
 		    bytes_read = read (logfile_fd, read_buf, BUFFER_LEN);
+		    syslog (LOG_INFO,"Read Buffer : \n%s",read_buf);
 		    if (bytes_read == -1)
 		    {
 		    	syslog(LOG_ERR,"logging file read failed \n");
 		    	break;
 		    }
+		    syslog (LOG_INFO,"read from log\n");
+		    syslog (LOG_INFO,"Bytes Read : %ld",bytes_read);
+		    syslog (LOG_INFO,"Read Buffer : \n%s",read_buf);
 		    
 		    bytes_sent = send (client_fd, read_buf, bytes_read, 0);
-		     if (bytes_sent == -1)
+		    syslog (LOG_INFO,"Bytes sent : %ld",bytes_sent);
+		    if (bytes_sent == -1)
 		    {
 		    	syslog(LOG_ERR,"send failed \n");
 		    	break;
 		    }
+		    syslog (LOG_INFO,"sent to client\n");
+		    syslog (LOG_INFO,"Bytes sent : %ld",bytes_sent);
+		    syslog (LOG_INFO,"sent read Buffer : \n%s",read_buf);
+		    
             }while(read_buf[bytes_sent-1] != '\n');
             
             close(client_fd);
