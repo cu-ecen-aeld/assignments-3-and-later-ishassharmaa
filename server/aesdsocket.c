@@ -49,10 +49,8 @@ volatile sig_atomic_t fatal_error_in_progress = 0;
 pid_t pid;
 bool daemon_flag = false;
 
-struct addrinfo hints, *servinfo, *p;
 struct sockaddr_storage client_address; // connector's address information
 socklen_t client_addrlen = sizeof(struct sockaddr_storage);
-int yes=1;
 ssize_t recv_bytes = 0;
 char buf[BUFFER_LEN];
 char read_buf[BUFFER_LEN];
@@ -69,7 +67,7 @@ typedef struct
     pthread_mutex_t *thread_mutex;
     bool complete_flag;
     int client_fd;
-    struct sockaddr_storage *client_address;
+    struct sockaddr_storage *client_addr;
 }thread_data_t;
 
 //structure linked list
@@ -100,6 +98,12 @@ thread_timestamp_t thread_timestamp;
 //smooth cleaup and termination 
 void cleanup(void)
 {	
+    syslog(LOG_INFO, "cleaning up \n");
+    	//pthread 
+	pthread_join(thread_timestamp.thread_id, NULL);
+
+    //mutex
+    pthread_mutex_destroy(&mutex);
 	close(socket_fd);
 	close(client_fd);
 	close(logfile_fd);
@@ -115,11 +119,7 @@ void cleanup(void)
         free(new_node);
         new_node = NULL;
     }
-	//pthread 
-	pthread_join(thread_timestamp.thread_id, NULL);
 
-    //mutex
-    pthread_mutex_destroy(&mutex);
 
 	exit(EXIT_SUCCESS);
 	
@@ -145,7 +145,12 @@ void signal_handler(int signal_type)
 		  /*STEP:
 		  	Gracefully exits when SIGINT or SIGTERM is received
 		 */
-			cleanup();
+			shutdown(socket_fd, SHUT_RDWR);
+            close(socket_fd);
+	        close(client_fd);
+	        close(logfile_fd);
+            remove(LOG_FILE);
+            syslog(LOG_INFO,"cleaned up\n");
 
 		  /* Now reraise the signal.  We reactivate the signal’s
 		     default handling, which is to terminate the process.
@@ -209,46 +214,61 @@ void make_deamon(void)
 }
 
 //function to open a stream socket bound to port 9000
-void open_socket(void)
+int open_socket()
 {
+    struct addrinfo hints, *servinfo;
+
+    int yes=1;
+
+    //hints structure data for getaddrinfo
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_UNSPEC; //dont care for ipv4/6
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_PASSIVE; // use my IP
+    hints.ai_protocol = 0;              /* Any protocol */
+	hints.ai_canonname = NULL;
+	hints.ai_addr = NULL;
+	hints.ai_next = NULL;
+
     if((status = getaddrinfo(NULL, PORT, &hints, &servinfo)) != 0) 
     {
-        syslog(LOG_ERR, "getaddrinfo failed \n");       
+        syslog(LOG_ERR, "getaddrinfo failed \n");  
+        return -1;
     }
         
     if (servinfo == NULL)
     {
         syslog(LOG_ERR, "malloc for serverinfo failed \n");
+        return -1;
     }
-}
 
-//function to bind socket
-void bind_socket(void)
-{
-    for(p = servinfo; p != NULL; p = p->ai_next) 
+    if ((socket_fd = socket(servinfo->ai_family, servinfo->ai_socktype,servinfo->ai_protocol)) == -1) 
     {
-        if ((socket_fd = socket(p->ai_family, p->ai_socktype,p->ai_protocol)) == -1) 
-        {
-            syslog(LOG_ERR,"Socket creation failed \n");
-            break;
-        }
-            //syslog(LOG_INFO, "socket creation sucess \n");
-        
-        if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) 
-        {
-            syslog(LOG_ERR,"setsockopt failed \n");
-            break;
-        }
-            //syslog(LOG_INFO, "setsockopt sucess \n");
-            
-        if (bind(socket_fd, p->ai_addr, p->ai_addrlen) == -1) 
-        {
-            close(socket_fd);
-            syslog(LOG_ERR,"server bind failed \n");
-            break;
-        }
-    
+        syslog(LOG_ERR,"Socket creation failed \n");
+        return -1;
     }
+    syslog(LOG_INFO, "socket creation sucess \n");
+
+    if (setsockopt(socket_fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1) 
+    {
+        syslog(LOG_ERR,"setsockopt failed \n");
+        return -1;       
+    }
+    syslog(LOG_INFO, "setsockopt sucess \n");
+            
+    if (bind(socket_fd, servinfo->ai_addr, sizeof(struct sockaddr)) == -1) 
+    {
+        close(socket_fd);
+        syslog(LOG_ERR,"server bind failed : %s \n", strerror(errno));
+        return -1; 
+    }
+    syslog(LOG_INFO, "bind sucess \n");
+
+            
+    freeaddrinfo(servinfo);
+    servinfo = NULL;
+
+    return 0;
 }
 
 //function for timestamp thread to log timestamp
@@ -337,7 +357,7 @@ void *recv_send_thread(void *thread_param)
     /*STEP 6:
         Logs message to the syslog “Accepted connection from xxx” 
     */
-    inet_ntop(thread_data->client_address->ss_family, get_in_addr((struct sockaddr *)&thread_data->client_address), s, sizeof s);  // s is the ip address
+    inet_ntop(thread_data->client_addr->ss_family, get_in_addr((struct sockaddr *)&(thread_data->client_addr)), s, sizeof s);  // s is the ip address
     syslog(LOG_INFO,"Accepted connection from %s",s);
                       
     /* STEP 7: 
@@ -414,11 +434,14 @@ void *recv_send_thread(void *thread_param)
         //syslog (LOG_INFO,"Bytes Read : %ld",bytes_read);
         //syslog (LOG_INFO,"Read Buffer : \n%s",read_buf);
         
-        bytes_sent = send (thread_data->client_fd, read_buf, bytes_read, 0);
-        if (bytes_sent == -1)
+        if(bytes_read > 0)
         {
-            syslog(LOG_ERR,"send failed \n");
-            break;
+            bytes_sent = send (thread_data->client_fd, read_buf, bytes_read, 0);
+            if (bytes_sent == -1)
+            {
+                syslog(LOG_ERR,"send failed \n");
+                break;
+            }
         }
         //syslog (LOG_INFO,"sent to client\n");
         //syslog (LOG_INFO,"Bytes sent : %ld",bytes_sent);
@@ -449,6 +472,10 @@ int main(int argc, char *argv[])
 
     void * thread_return = NULL;
 
+	//for syslogging throughout
+	openlog("A5 Socket:",0,LOG_USER);
+    syslog(LOG_INFO,"starting socket\n");
+
 	if (argc == 2)
 	{
 		if(strcmp(argv[1], "-d") == 0) 
@@ -460,9 +487,6 @@ int main(int argc, char *argv[])
 		}
 	}
 	
-	//for syslogging throughout
-	openlog("A5 Socket:",0,LOG_USER);
-
 	//initialise mutex
 	status = pthread_mutex_init(&mutex, NULL);
 	if(status != 0)
@@ -489,31 +513,23 @@ int main(int argc, char *argv[])
 	{
 		syslog(LOG_ERR,"Failed to open log file \n");		
 	}	
-
-	//hints structure data for getaddrinfo
-	memset(&hints, 0, sizeof hints);
-	hints.ai_family = AF_UNSPEC; //dont care for ipv4/6
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_flags = AI_PASSIVE; // use my IP
 	
-	do
-	{
+
             /*STEP 1: 
                 Open a stream socket bound to port 9000, failing and returning -1 if any of the socket connection steps fail
             */
-            open_socket();
-                
-            /* STEP 2:
+           /* STEP 2:
                 bind
                 loop through all the results and bind to the first we can
             */
-            bind_socket();
-                
-            /* STEP 3:
+           /* STEP 3:
                 free malloc for addr struct
                 freeaddrinfo()
             */
-            freeaddrinfo(servinfo);
+            if (open_socket() == -1)
+            {
+                syslog(LOG_ERR, "open socket failed \n");
+            }
                 
             /* STEP 4:
                 if deamon specified, initialise it
@@ -536,7 +552,6 @@ int main(int argc, char *argv[])
         if (status == -1)
         {
             syslog(LOG_ERR, "listen failed \n");
-            break;
         }
 
         while(1)
@@ -545,6 +560,7 @@ int main(int argc, char *argv[])
             if (client_fd ==-1)
             {
                 syslog(LOG_ERR," accept failed \n");
+               
                 continue;
             }
             
@@ -555,7 +571,7 @@ int main(int argc, char *argv[])
                 3) join thread
             */
             //allocate memory
-            new_node = (slist_node_t *) malloc(sizeof(slist_node_t));
+            new_node = malloc(sizeof(slist_node_t));
             if(new_node == NULL)
             {
                 syslog(LOG_ERR,"new node for ll malloc failed");
@@ -564,7 +580,7 @@ int main(int argc, char *argv[])
             new_node->thread_data.thread_mutex = &mutex;
             new_node->thread_data.complete_flag = false;
             new_node->thread_data.client_fd = client_fd;
-            new_node->thread_data.client_address = (struct sockaddr_storage *)&client_address;
+            new_node->thread_data.client_addr = (struct sockaddr_storage *)&client_address;
 
             // create new thread
             pthread_return = pthread_create(&(new_node->thread_data.thread_id), NULL, \
@@ -600,8 +616,8 @@ int main(int argc, char *argv[])
             }      
         }
            
-    }while(0);//exit	
     cleanup(); //cleanup after end
     closelog();
+    return 0;
 }
 
