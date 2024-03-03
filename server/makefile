@@ -1,7 +1,7 @@
 #cross compiler 
-CC = $(CROSS_COMPILE)gcc
+CC ?= $(CROSS_COMPILE)gcc
 
-CFLAGS = -Wall -Werror -g
+CFLAGS ?= -Wall -Werror -g
 LDFLAGS ?= -pthread -lrt
 
 EXEC = aesdsocket
