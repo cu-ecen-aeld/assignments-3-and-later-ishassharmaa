@@ -1,7 +1,8 @@
 #cross compiler 
-CC = $(CROSS_COMPILE)gcc
+CC ?= $(CROSS_COMPILE)gcc
 
-CFLAGS = -Wall -Werror -g
+CFLAGS ?= -Wall -Werror -g
+LDFLAGS ?= -pthread -lrt
 
 EXEC = aesdsocket
 
@@ -9,7 +10,7 @@ default : $(EXEC)
 all : $(EXEC)
 
 $(EXEC): $(EXEC).c
-	$(CC) $(CFLAGS) -o $(EXEC) $(EXEC).c
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $(EXEC) $(EXEC).c
 
 
 clean:
