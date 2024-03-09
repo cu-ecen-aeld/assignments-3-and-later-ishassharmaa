@@ -559,7 +559,7 @@ int main(int argc, char *argv[])
             client_fd = accept(socket_fd, (struct sockaddr *)&client_address, &client_addrlen);
             if (client_fd ==-1)
             {
-                syslog(LOG_ERR," accept failed \n");
+                //syslog(LOG_ERR," accept failed \n");
                
                 continue;
             }
