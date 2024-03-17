@@ -37,7 +37,14 @@ Date: Feb 22, 2024
 
 //Defines 
 #define PORT        "9000"
-#define LOG_FILE    "/var/tmp/aesdsocketdata" 
+#define USE_AESD_CHAR_DEVICE (1) 
+
+#if (USE_AESD_CHAR_DEVICE == 1)
+	#define DATA_FILE "/dev/aesdchar"
+#else
+	#define DATA_FILE "/var/tmp/aesdsocketdata"
+#endif
+
 #define BACKLOG     (10) 
 #define BUFFER_LEN  (1024)
 
@@ -100,8 +107,9 @@ void cleanup(void)
 {	
     syslog(LOG_INFO, "cleaning up \n");
     	//pthread 
+    	#if (USE_AESD_CHAR_DEVICE != 1)
 	pthread_join(thread_timestamp.thread_id, NULL);
-
+	#endif
     //mutex
     pthread_mutex_destroy(&mutex);
 	close(socket_fd);
@@ -270,7 +278,7 @@ int open_socket()
 
     return 0;
 }
-
+#if (USE_AESD_CHAR_DEVICE != 1)
 //function for timestamp thread to log timestamp
 void *timestamp_threadFunc(void *thread_param)
 {
@@ -330,6 +338,7 @@ void *timestamp_threadFunc(void *thread_param)
 
     }
 }
+#endif
 
 //function to setup timestamp
 void timestamp_setup (void)
@@ -543,7 +552,13 @@ int main(int argc, char *argv[])
             /* STEP FOR A6: 
                 set up timestamp
             */
-            timestamp_setup();
+		#if (USE_AESD_CHAR_DEVICE != 1)
+		    ret = timestamp_setup();
+		    if(ret == RET_ERROR)
+		    {
+			return -1;
+		    }
+		#endif
 
         /* STEP 5:
             Listens for and accepts a connection
