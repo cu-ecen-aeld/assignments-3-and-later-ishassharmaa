@@ -118,7 +118,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     size_t newline_index = 0;
     size_t write_buffer_index;
     bool newline_present = false;
-
+    char *new_buffptr = NULL;
 	aesd_device_ptr = filp->private_data;
 
     PDEBUG("write %zu bytes with offset %lld",count,*f_pos);
@@ -179,7 +179,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     }
 	            
     //step 5: reallocate buffer entry mem for the extra data in buffer, if not free and release everything
-    char *new_buffptr = krealloc(aesd_device_ptr->entry.buffptr, aesd_device_ptr->entry.size + newline_index, GFP_KERNEL);
+    new_buffptr = krealloc(aesd_device_ptr->entry.buffptr, aesd_device_ptr->entry.size + newline_index, GFP_KERNEL);
     if (new_buffptr == NULL)
     {
         kfree(write_buffer);
