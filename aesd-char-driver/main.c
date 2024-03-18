@@ -183,10 +183,15 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     if (new_buffptr == NULL)
     {
         kfree(write_buffer);
+        kfree(new_buffptr);
         mutex_unlock(&aesd_device_ptr->lock);
         return -ENOMEM;
     }
+    else
+    {
     aesd_device_ptr->entry.buffptr = new_buffptr;
+    kfree(new_buffptr);
+    }
 
     //step6: copy from write buffer into ased char entry buffer
     memcpy((void *)aesd_device_ptr->entry.buffptr + aesd_device_ptr->entry.size, write_buffer, newline_index);
