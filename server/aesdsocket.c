@@ -121,7 +121,9 @@ void cleanup(void)
 	close(logfile_fd);
     //unlink(LOG_FILE);
 	shutdown(socket_fd, SHUT_RDWR);
+	#if (USE_AESD_CHAR_DEVICE != 1)
 	remove(LOG_FILE);
+	#endif
 
     //free queue 
     while (!SLIST_EMPTY(&head))
