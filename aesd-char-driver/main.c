@@ -162,16 +162,21 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     {
         if(write_buffer[write_buffer_index] == '\n') 
         {
-            newline_index = write_buffer_index + 1;
             newline_present = TRUE;
             break;
         }
-        else
-        {
-            newline_index = count;
-        }
+        
     }
 
+    if(newline_present == TRUE)
+	{
+	   newline_index = write_buffer_index + 1;      
+	}
+    else
+        {
+    	   newline_index = count;
+        }
+	            
     //step 5: reallocate buffer entry mem for the extra data in buffer, if not free and release everything
     aesd_device_ptr->entry.buffptr = krealloc ( aesd_device_ptr->entry.buffptr, aesd_device_ptr->entry.size + newline_index, GFP_KERNEL);
     if(aesd_device_ptr->entry.buffptr == NULL)
