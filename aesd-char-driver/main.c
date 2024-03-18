@@ -119,8 +119,6 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     size_t write_buffer_index;
     bool newline_present = false;
 
-	aesd_device_ptr = filp->private_data;
-
     PDEBUG("write %zu bytes with offset %lld",count,*f_pos);
 
     //step1: check args
@@ -128,6 +126,14 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     {
         PDEBUG("aesd_read: invalid args\n");
         return -EINVAL;
+    }
+
+    aesd_device_ptr = filp->private_data;
+
+    if (!aesd_device_ptr)
+    {
+        PDEBUG("aesd_write: private data not used\n ");
+        return -EPERM;
     }
 
     //step2: kmalloc
@@ -180,15 +186,16 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 	            
     //step 5: reallocate buffer entry mem for the extra data in buffer, if not free and release everything
    
+
+    aesd_device_ptr->entry.buffptr = krealloc ( aesd_device_ptr->entry.buffptr, aesd_device_ptr->entry.size + newline_index, GFP_KERNEL);
+    if(aesd_device_ptr->entry.buffptr == NULL)
     {
-        aesd_device_ptr->entry.buffptr = krealloc ( aesd_device_ptr->entry.buffptr, aesd_device_ptr->entry.size + newline_index, GFP_KERNEL);
-        if(aesd_device_ptr->entry.buffptr == NULL)
-        {
-            kfree(write_buffer);
-            mutex_unlock(&aesd_device_ptr->lock);
-            return -ENOMEM;
-        }
+        PDEBUG("aesd_write: realloc failed \n");
+        kfree(write_buffer);
+        mutex_unlock(&aesd_device_ptr->lock);
+        return -ENOMEM;
     }
+
     
 
     //step6: copy from write buffer into ased char entry buffer
@@ -198,8 +205,8 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     //step 8: add to actualy buffer entry 
     if (newline_present)
     {
-        struct aesd_buffer_entry Entry;
-	struct aesd_buffer_entry *old_entry = NULL;
+        struct aesd_buffer_entry Entry= {0};
+	    struct aesd_buffer_entry *old_entry = NULL;
         Entry.buffptr = aesd_device_ptr->entry.buffptr;
         Entry.size    = aesd_device_ptr->entry.size;
       
