@@ -136,7 +136,6 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     if(write_buffer == NULL)
     {
 		PDEBUG("aesd_write: kmalloc failed \n");
-        kfree(write_buffer);
         return -ENOMEM;
     }
     
@@ -153,6 +152,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     if (retval != 0)
 	{
 	    kfree(write_buffer);
+        mutex_unlock(&aesd_device_ptr->lock);
         return -EFAULT;
 	}
 
@@ -179,17 +179,14 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     }
 	            
     //step 5: reallocate buffer entry mem for the extra data in buffer, if not free and release everything
-   
+    char *new_buffptr = krealloc(aesd_device_ptr->entry.buffptr, aesd_device_ptr->entry.size + newline_index, GFP_KERNEL);
+    if (new_buffptr == NULL)
     {
-        aesd_device_ptr->entry.buffptr = krealloc ( aesd_device_ptr->entry.buffptr, aesd_device_ptr->entry.size + newline_index, GFP_KERNEL);
-        if(aesd_device_ptr->entry.buffptr == NULL)
-        {
-            kfree(write_buffer);
-            mutex_unlock(&aesd_device_ptr->lock);
-            return -ENOMEM;
-        }
+        kfree(write_buffer);
+        mutex_unlock(&aesd_device_ptr->lock);
+        return -ENOMEM;
     }
-    
+    aesd_device_ptr->entry.buffptr = new_buffptr;
 
     //step6: copy from write buffer into ased char entry buffer
     memcpy((void *)aesd_device_ptr->entry.buffptr + aesd_device_ptr->entry.size, write_buffer, newline_index);
