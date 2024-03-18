@@ -198,11 +198,10 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     if (newline_present)
     {
         struct aesd_buffer_entry Entry;
-
+	struct aesd_buffer_entry *old_entry = NULL;
         Entry.buffptr = aesd_device_ptr->entry.buffptr;
         Entry.size    = aesd_device_ptr->entry.size;
-
-        struct aesd_buffer_entry *old_entry = NULL;
+      
 
         //if write buffer is already filled, remove the lastt entry to writet new one
         if (aesd_device_ptr->buffer.full)
