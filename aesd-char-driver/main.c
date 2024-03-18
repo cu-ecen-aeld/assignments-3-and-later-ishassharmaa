@@ -178,13 +178,17 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     }
 	            
     //step 5: reallocate buffer entry mem for the extra data in buffer, if not free and release everything
-    aesd_device_ptr->entry.buffptr = krealloc ( aesd_device_ptr->entry.buffptr, aesd_device_ptr->entry.size + newline_index, GFP_KERNEL);
-    if(aesd_device_ptr->entry.buffptr == NULL)
+   
     {
-        kfree(write_buffer);
-        mutex_unlock(&aesd_device_ptr->lock);
-        return -ENOMEM;
+        aesd_device_ptr->entry.buffptr = krealloc ( aesd_device_ptr->entry.buffptr, aesd_device_ptr->entry.size + newline_index, GFP_KERNEL);
+        if(aesd_device_ptr->entry.buffptr == NULL)
+        {
+            kfree(write_buffer);
+            mutex_unlock(&aesd_device_ptr->lock);
+            return -ENOMEM;
+        }
     }
+    
 
     //step6: copy from write buffer into ased char entry buffer
     memcpy((void *)aesd_device_ptr->entry.buffptr + aesd_device_ptr->entry.size, write_buffer, newline_index);
@@ -197,6 +201,18 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 
         Entry.buffptr = aesd_device_ptr->entry.buffptr;
         Entry.size    = aesd_device_ptr->entry.size;
+
+        struct aesd_buffer_entry *old_entry = NULL;
+
+        //if write buffer is already filled, remove the lastt entry to writet new one
+        if (aesd_device_ptr->buffer.full)
+        {
+            old_entry = &aesd_device_ptr->buffer.entry[aesd_device_ptr->buffer.in_offs];      
+            if(old_entry->buffptr)
+                kfree(old_entry->buffptr);
+            old_entry->buffptr = NULL;
+            old_entry->size = 0;
+        }
 
         aesd_circular_buffer_add_entry(&aesd_device_ptr->buffer, &Entry);
 
