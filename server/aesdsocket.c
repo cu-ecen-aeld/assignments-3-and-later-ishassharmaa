@@ -84,6 +84,7 @@ typedef struct slist_node
     SLIST_ENTRY(slist_node) entries;
 } slist_node_t;
 
+#if (USE_AESD_CHAR_DEVICE != 1)
 //structure for timestamp in thread
 typedef struct
 {
@@ -91,6 +92,7 @@ typedef struct
     pthread_mutex_t *thread_mutex;
     int intervalSecs;//time interval in seconds
 }thread_timestamp_t;
+#endif
 
 //for linkedlist
 SLIST_HEAD(head_s, slist_node) head;
@@ -99,8 +101,10 @@ slist_node_t * new_node = NULL;
 //for mutex
 pthread_mutex_t mutex;
 
+#if (USE_AESD_CHAR_DEVICE != 1)
 //for timestamp
 thread_timestamp_t thread_timestamp;
+#endif
 
 //smooth cleaup and termination 
 void cleanup(void)
@@ -339,7 +343,7 @@ void *timestamp_threadFunc(void *thread_param)
     }
 }
 #endif
-
+#if (USE_AESD_CHAR_DEVICE != 1)
 //function to setup timestamp
 void timestamp_setup (void)
 {
@@ -354,7 +358,7 @@ void timestamp_setup (void)
     }
 
 }
-
+#endif
 
 void *recv_send_thread(void *thread_param)
 {
@@ -552,13 +556,13 @@ int main(int argc, char *argv[])
             /* STEP FOR A6: 
                 set up timestamp
             */
-		#if (USE_AESD_CHAR_DEVICE != 1)
+#if (USE_AESD_CHAR_DEVICE != 1)
 		    ret = timestamp_setup();
 		    if(ret == RET_ERROR)
 		    {
 			return -1;
 		    }
-		#endif
+#endif
 
         /* STEP 5:
             Listens for and accepts a connection
