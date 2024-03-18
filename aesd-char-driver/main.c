@@ -72,7 +72,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     aesd_device_ptr= filp->private_data;
 
     //step3: mutex
-    if(mutex_lock_interruptible(&aesd_device_ptr.lock) != 0)
+    if(mutex_lock_interruptible(&aesd_device_ptr->lock) != 0)
 	{
 		PDEBUG("aesd_read: mutex lock failed \n");
 		return -ERESTARTSYS; 
@@ -103,7 +103,7 @@ ssize_t aesd_read(struct file *filp, char __user *buf, size_t count,
     }
 
     //step6: unlock mutex
-    mutex_unlock(&aesd_device_ptr.lock);
+    mutex_unlock(&aesd_device_ptr->lock);
     PDEBUG("aesd_read: sucess \n");
     return retval;
 }
@@ -114,8 +114,10 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     ssize_t retval = -ENOMEM; 
 	//initialise variable
     struct aesd_dev *aesd_device_ptr =NULL;  
-    char * write_buffer = NULL;
-    ssize_t bytes_read = 0;
+    char *write_buffer = NULL;
+    size_t newline_index = 0;
+    size_t write_buffer_index;
+    bool newline_present = false;
 
 	aesd_device_ptr = filp->private_data;
 
@@ -146,7 +148,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     }
 
     //step3: copy from user space to kernel
-    retval = copy_from_user(write_data, buf, count),
+    retval = copy_from_user(write_buffer, buf, count);
     if (retval != 0)
 	{
 	    kfree(write_buffer);
@@ -155,40 +157,38 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 
     //step4: find newline in buffer
     // if \n is there, write to buffer. if \n is not there, then continue writing till \n is found and then write to buffer.
-    size_t newline_index = 0;
-    ssize_t write_buffer_index;
-    bool newline_present = FALSE;
+ 
     for (write_buffer_index=0; write_buffer_index<count; write_buffer_index++)
     {
         if(write_buffer[write_buffer_index] == '\n') 
         {
-            newline_present = TRUE;
+            newline_present = true;
             break;
         }
         
     }
 
-    if(newline_present == TRUE)
+    if(newline_present == true)
 	{
 	   newline_index = write_buffer_index + 1;      
 	}
     else
-        {
-    	   newline_index = count;
-        }
+    {
+        newline_index = count;
+    }
 	            
     //step 5: reallocate buffer entry mem for the extra data in buffer, if not free and release everything
     aesd_device_ptr->entry.buffptr = krealloc ( aesd_device_ptr->entry.buffptr, aesd_device_ptr->entry.size + newline_index, GFP_KERNEL);
     if(aesd_device_ptr->entry.buffptr == NULL)
     {
         kfree(write_buffer);
-        mutex_unlock(&char_dev->lock);
+        mutex_unlock(&aesd_device_ptr->lock);
         return -ENOMEM;
     }
 
     //step6: copy from write buffer into ased char entry buffer
-    memcpy(aesd_device_ptr->entry.buffptr + aesd_device_ptr->entry.size, write_buffer, newline_index);
-    aesd_device_ptr->entry.size = aesd_device_ptr->entry.size + bytes_to_write;
+    memcpy((void *)aesd_device_ptr->entry.buffptr + aesd_device_ptr->entry.size, write_buffer, newline_index);
+    aesd_device_ptr->entry.size = aesd_device_ptr->entry.size + newline_index;
 
     //step 8: add to actualy buffer entry 
     if (newline_present)
@@ -198,10 +198,10 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
         Entry.buffptr = aesd_device_ptr->entry.buffptr;
         Entry.size    = aesd_device_ptr->entry.size;
 
-        aesd_circular_buffer_add_entry(&aesd_dev->buffer, &Entry);
+        aesd_circular_buffer_add_entry(&aesd_device_ptr->buffer, &Entry);
 
         aesd_device_ptr->entry.buffptr = NULL;
-        dev->entry.size = 0;
+        aesd_device_ptr->entry.size = 0;
     }    
 
     //step 9: update the return value 
