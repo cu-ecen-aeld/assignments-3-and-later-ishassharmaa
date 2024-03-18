@@ -136,6 +136,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     if(write_buffer == NULL)
     {
 		PDEBUG("aesd_write: kmalloc failed \n");
+        kfree(write_buffer);
         return -ENOMEM;
     }
     
