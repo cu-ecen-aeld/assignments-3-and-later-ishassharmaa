@@ -204,6 +204,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
  
     //step10: unlock mutex and clean
     mutex_unlock(&aesd_device_ptr->lock); 
+    kfree(write_buffer);
     PDEBUG("aesd_write: sucess \n");  
     return retval;
 }
