@@ -40,9 +40,9 @@ Date: Feb 22, 2024
 #define USE_AESD_CHAR_DEVICE (1) 
 
 #if (USE_AESD_CHAR_DEVICE == 1)
-	#define DATA_FILE "/dev/aesdchar"
+	#define LOG_FILE "/dev/aesdchar"
 #else
-	#define DATA_FILE "/var/tmp/aesdsocketdata"
+	#define LOG_FILE "/var/tmp/aesdsocketdata"
 #endif
 
 #define BACKLOG     (10) 
