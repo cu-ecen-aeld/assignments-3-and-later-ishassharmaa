@@ -37,7 +37,14 @@ Date: Feb 22, 2024
 
 //Defines 
 #define PORT        "9000"
-#define LOG_FILE    "/var/tmp/aesdsocketdata" 
+#define USE_AESD_CHAR_DEVICE (1) 
+
+#ifdef USE_AESD_CHAR_DEVICE
+	#define LOG_FILE "/dev/aesdchar"
+#else
+	#define LOG_FILE "/var/tmp/aesdsocketdata"
+#endif
+
 #define BACKLOG     (10) 
 #define BUFFER_LEN  (1024)
 
@@ -77,6 +84,7 @@ typedef struct slist_node
     SLIST_ENTRY(slist_node) entries;
 } slist_node_t;
 
+
 //structure for timestamp in thread
 typedef struct
 {
@@ -92,16 +100,19 @@ slist_node_t * new_node = NULL;
 //for mutex
 pthread_mutex_t mutex;
 
+
 //for timestamp
 thread_timestamp_t thread_timestamp;
+
 
 //smooth cleaup and termination 
 void cleanup(void)
 {	
     syslog(LOG_INFO, "cleaning up \n");
     	//pthread 
-	pthread_join(thread_timestamp.thread_id, NULL);
-
+    	#if (USE_AESD_CHAR_DEVICE != 1)
+	    pthread_join(thread_timestamp.thread_id, NULL);
+	    #endif
     //mutex
     pthread_mutex_destroy(&mutex);
 	close(socket_fd);
@@ -109,7 +120,9 @@ void cleanup(void)
 	close(logfile_fd);
     //unlink(LOG_FILE);
 	shutdown(socket_fd, SHUT_RDWR);
+	#if (USE_AESD_CHAR_DEVICE != 1)
 	remove(LOG_FILE);
+	#endif
 
     //free queue 
     while (!SLIST_EMPTY(&head))
@@ -270,7 +283,7 @@ int open_socket()
 
     return 0;
 }
-
+#if (USE_AESD_CHAR_DEVICE != 1)
 //function for timestamp thread to log timestamp
 void *timestamp_threadFunc(void *thread_param)
 {
@@ -330,7 +343,8 @@ void *timestamp_threadFunc(void *thread_param)
 
     }
 }
-
+#endif
+#if (USE_AESD_CHAR_DEVICE != 1)
 //function to setup timestamp
 void timestamp_setup (void)
 {
@@ -345,7 +359,7 @@ void timestamp_setup (void)
     }
 
 }
-
+#endif
 
 void *recv_send_thread(void *thread_param)
 {
@@ -543,7 +557,13 @@ int main(int argc, char *argv[])
             /* STEP FOR A6: 
                 set up timestamp
             */
-            timestamp_setup();
+#if (USE_AESD_CHAR_DEVICE != 1)
+		    ret = timestamp_setup();
+		    if(ret == RET_ERROR)
+		    {
+			return -1;
+		    }
+#endif
 
         /* STEP 5:
             Listens for and accepts a connection
