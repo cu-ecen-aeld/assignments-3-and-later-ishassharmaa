@@ -182,8 +182,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     {
         newline_index = count;
     }
-	PDEBUG("aesd_write: Write buffer newline index: %d \n",newline_index);	
-            
+	
     //step 5: reallocate buffer entry mem for the extra data in buffer, if not free and release everything
    
 
@@ -199,7 +198,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     
 
     //step6: copy from write buffer into ased char entry buffer
-    memcpy((aesd_device_ptr->entry.buffptr + aesd_device_ptr->entry.size), write_buffer, newline_index);
+    memcpy((void *)aesd_device_ptr->entry.buffptr + aesd_device_ptr->entry.size, write_buffer, newline_index);
     aesd_device_ptr->entry.size = aesd_device_ptr->entry.size + newline_index;
 
     //step 8: add to actualy buffer entry 
