@@ -185,16 +185,38 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 	
     //step 5: reallocate buffer entry mem for the extra data in buffer, if not free and release everything
    
-
-    aesd_device_ptr->entry.buffptr = krealloc ( aesd_device_ptr->entry.buffptr, (aesd_device_ptr->entry.size + newline_index), GFP_KERNEL);
-    if(aesd_device_ptr->entry.buffptr == NULL)
+   if(aesd_device_ptr->entry.size == 0)
     {
-        PDEBUG("aesd_write: realloc failed \n");
-        kfree(write_buffer);
-        mutex_unlock(&aesd_device_ptr->lock);
-        return -ENOMEM;
+        aesd_device_ptr->entry.buffptr = kmalloc(count, GFP_KERNEL);
+        if(aesd_device_ptr->entry.buffptr == NULL)
+        {
+            if (write_buffer)
+            {
+		kfree(write_buffer);
+	    }
+		
+	aesd_device_ptr->entry.buffptr = NULL;
+	aesd_device_ptr->entry.size = 0;
+	mutex_unlock(&aesd_device_ptr->lock);
+            return retval;
+        }
     }
-
+    else
+    {
+	    aesd_device_ptr->entry.buffptr = krealloc ( aesd_device_ptr->entry.buffptr, (aesd_device_ptr->entry.size + newline_index), GFP_KERNEL);
+	    if(aesd_device_ptr->entry.buffptr == NULL)
+	    {
+		PDEBUG("aesd_write: realloc failed \n");
+		if (write_buffer)
+            {
+		kfree(write_buffer);
+	    }
+	aesd_device_ptr->entry.buffptr = NULL;
+	aesd_device_ptr->entry.size = 0;
+	mutex_unlock(&aesd_device_ptr->lock);
+		return -ENOMEM;
+	    }
+    }
     
 
     //step6: copy from write buffer into ased char entry buffer
