@@ -140,7 +140,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 
     if(write_buffer == NULL)
     {
-		PDEBUG("aesd_write: kmalloc failed \n");
+	PDEBUG("aesd_write: kmalloc failed \n");
         return -ENOMEM;
     }
     
@@ -148,6 +148,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     retval = copy_from_user(write_buffer, buf, count);
     if (retval != 0)
 	{
+	        PDEBUG("aesd_write: copy_from_user failed \n");
 		kfree(write_buffer);
 		return -EFAULT;
 	}
@@ -195,10 +196,9 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 		kfree(write_buffer);
 	    }
 		
-	aesd_device_ptr->entry.buffptr = NULL;
-	aesd_device_ptr->entry.size = 0;
-	mutex_unlock(&aesd_device_ptr->lock);
-            return retval;
+		aesd_device_ptr->entry.size = 0;
+		mutex_unlock(&aesd_device_ptr->lock);
+		return retval;
         }
     }
     else
@@ -208,12 +208,12 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 	    {
 		PDEBUG("aesd_write: realloc failed \n");
 		if (write_buffer)
-            {
-		kfree(write_buffer);
-	    }
-	aesd_device_ptr->entry.buffptr = NULL;
-	aesd_device_ptr->entry.size = 0;
-	mutex_unlock(&aesd_device_ptr->lock);
+		    {
+			kfree(write_buffer);
+		    }
+	
+		aesd_device_ptr->entry.size = 0;
+		mutex_unlock(&aesd_device_ptr->lock);
 		return -ENOMEM;
 	    }
     }
@@ -226,6 +226,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     //step 8: add to actualy buffer entry 
     if (newline_present)
     {
+
         struct aesd_buffer_entry Entry= {0};
 	struct aesd_buffer_entry *old_entry = NULL;
         Entry.buffptr = aesd_device_ptr->entry.buffptr;
@@ -243,7 +244,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
         }
 
         aesd_circular_buffer_add_entry(&aesd_device_ptr->buffer, &Entry);
-
+		
         aesd_device_ptr->entry.buffptr = NULL;
         aesd_device_ptr->entry.size = 0;
     }    
