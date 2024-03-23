@@ -1,9 +1,10 @@
 #!/bin/bash
 # Script outline to install and build kernel.
 # Author: Siddhant Jajoo.
+# student: Isha Sharma
 
-set -e
-set -u
+set -e #If any command fails (returns a non-zero exit status), the script will terminate immediately, preventing further execution.
+set -u #If any part of the script tries to use a variable that hasn't been set (is undefined), the script will terminate with an error.
 
 OUTDIR=/tmp/aeld
 KERNEL_REPO=git://git.kernel.org/pub/scm/linux/kernel/git/stable/linux-stable.git
@@ -23,21 +24,45 @@ fi
 
 mkdir -p ${OUTDIR}
 
+#check if outdir already exists
 cd "$OUTDIR"
 if [ ! -d "${OUTDIR}/linux-stable" ]; then
     #Clone only if the repository does not exist.
 	echo "CLONING GIT LINUX STABLE VERSION ${KERNEL_VERSION} IN ${OUTDIR}"
 	git clone ${KERNEL_REPO} --depth 1 --single-branch --branch ${KERNEL_VERSION}
 fi
+
 if [ ! -e ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ]; then
     cd linux-stable
     echo "Checking out version ${KERNEL_VERSION}"
     git checkout ${KERNEL_VERSION}
 
     # TODO: Add your kernel build steps here
+    
+    #deep clean the prev kernel
+    echo "clean prev kernel"
+    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} mrproper
+    
+    #default config for "virt" dev board 
+    echo "default config for "virt" dev board "
+    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} defconfig
+    
+    #building kernel image for booting with Qemu
+    echo "building kernel image for booting with Qemu"
+    make -j4 ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} all
+    
+    #building kernel image
+    echo "building kernel image"
+    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} modules
+      
+    #building device tree
+    echo "building device tree"
+    make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} dtbs
+    
 fi
 
 echo "Adding the Image in outdir"
+cp ${OUTDIR}/linux-stable/arch/${ARCH}/boot/Image ${OUTDIR}
 
 echo "Creating the staging directory for the root filesystem"
 cd "$OUTDIR"
@@ -48,33 +73,76 @@ then
 fi
 
 # TODO: Create necessary base directories
+#creating folder tree
+mkdir ${OUTDIR}/rootfs
+cd rootfs
+mkdir -p bin dev etc home lib lib64 proc sbin sys tmp usr var
+mkdir -p usr/bin usr/lib usr/sbin
+mkdir -p var/log
+
 
 cd "$OUTDIR"
 if [ ! -d "${OUTDIR}/busybox" ]
 then
-git clone git://busybox.net/busybox.git
+    git clone git://busybox.net/busybox.git
     cd busybox
     git checkout ${BUSYBOX_VERSION}
     # TODO:  Configure busybox
+    
+    #clean and define default config
+    make distclean 
+    make defconfig
+    
 else
     cd busybox
 fi
 
 # TODO: Make and install busybox
+make ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE}
+make CONFIG_PREFIX=${OUTDIR}/rootfs ARCH=${ARCH} CROSS_COMPILE=${CROSS_COMPILE} install
 
 echo "Library dependencies"
-${CROSS_COMPILE}readelf -a bin/busybox | grep "program interpreter"
-${CROSS_COMPILE}readelf -a bin/busybox | grep "Shared library"
+cd ${OUTDIR}/rootfs
+#${CROSS_COMPILE}readelf -a bin/busybox | grep "program interpreter"
+#${CROSS_COMPILE}readelf -a bin/busybox | grep "Shared library"
 
 # TODO: Add library dependencies to rootfs
+#copy all the files that match the pattern, use *
+SYSROOT=$(${CROSS_COMPILE}gcc -print-sysroot)
+sudo cp ${SYSROOT}/lib/ld-linux-aarch64.so.1 ${OUTDIR}/rootfs/lib
+sudo cp ${SYSROOT}/lib64/libc.so.6 ${OUTDIR}/rootfs/lib64
+sudo cp ${SYSROOT}/lib64/libm.so.6 ${OUTDIR}/rootfs/lib64
+sudo cp ${SYSROOT}/lib64/libresolv.so.2 ${OUTDIR}/rootfs/lib64
 
 # TODO: Make device nodes
+cd "${OUTDIR}/rootfs"
+#null device
+sudo mknod -m 666 dev/null c 1 3 
+#console device
+sudo mknod -m 666 dev/console c 5 1
 
 # TODO: Clean and build the writer utility
+cd ${FINDER_APP_DIR}
+make clean
+make CROSS_COMPILE=${CROSS_COMPILE}
 
-# TODO: Copy the finder related scripts and executables to the /home directory
-# on the target rootfs
+# TODO: Copy the finder related scripts and executables to the /home directory on the target rootfs
+cp finder.sh "${OUTDIR}/rootfs/home"
+cp finder-test.sh "${OUTDIR}/rootfs/home"
+cp writer "${OUTDIR}/rootfs/home"
+cp autorun-qemu.sh "${OUTDIR}/rootfs/home"
+cp -r conf/ "${OUTDIR}/rootfs/home"
 
-# TODO: Chown the root directory
+# TODO: Chown(change ownership) the root directory
+
+#Change the current working directory
+cd ${OUTDIR}/rootfs
+#both user and group set to root
+sudo chown -R root:root *
 
 # TODO: Create initramfs.cpio.gz
+cd "${OUTDIR}/rootfs"
+find . | cpio -H newc -ov --owner root:root > ${OUTDIR}/initramfs.cpio
+cd "$OUTDIR"
+gzip -f initramfs.cpio
+
