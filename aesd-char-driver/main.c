@@ -254,9 +254,10 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
             {
                 kfree(old_entry->buffptr);
 		PDEBUG("KFREE: freeing oldest entry \n");
-	     }
+	     
             old_entry->buffptr = NULL;
             old_entry->size = 0;
+            }
         }
 
         aesd_circular_buffer_add_entry(&aesd_device_ptr->buffer, &Entry);
