@@ -127,6 +127,13 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
         return -EINVAL;
     }
 
+    if( count<0)
+    {
+		PDEBUG("aesd_read: invalid arg count\n");
+		return -EINVAL;
+    }
+	
+	
     aesd_device_ptr = filp->private_data;
 
     if (!aesd_device_ptr)
@@ -191,7 +198,8 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
    
    if(aesd_device_ptr->entry.size == 0)
     {
-        aesd_device_ptr->entry.buffptr = kmalloc(count, GFP_KERNEL);
+        aesd_device_ptr->entry.buffptr = (const char *) kmalloc(count, GFP_KERNEL);
+        PDEBUG("pass_aesd_write: entry.buffer malloced, not realloced\n ");
         if(aesd_device_ptr->entry.buffptr == NULL)
         {
             if (write_buffer)
@@ -207,7 +215,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     }
     else
     {
-	    aesd_device_ptr->entry.buffptr = krealloc ( aesd_device_ptr->entry.buffptr, (aesd_device_ptr->entry.size + newline_index), GFP_KERNEL);
+	    aesd_device_ptr->entry.buffptr = (const char *) krealloc ( aesd_device_ptr->entry.buffptr, (aesd_device_ptr->entry.size + newline_index), GFP_KERNEL);
 	    if(aesd_device_ptr->entry.buffptr == NULL)
 	    {
 		PDEBUG("aesd_write: realloc failed \n");
