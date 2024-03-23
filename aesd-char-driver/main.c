@@ -149,7 +149,8 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     if (retval != 0)
 	{
 	        PDEBUG("aesd_write: copy_from_user failed \n");
-		kfree(write_buffer);
+		//kfree(write_buffer);
+		PDEBUG("KFREE: copy from user; freeing write buffer \n");
 		return -EFAULT;
 	}
 	
@@ -157,7 +158,6 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     if (mutex_lock_interruptible(&aesd_device_ptr->lock) != 0)
     {
 	PDEBUG("aesd_write: mutex lock failed \n");
-       // kfree(write_buffer);
         return -ERESTARTSYS;
     }
 
@@ -193,10 +193,10 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
         {
             if (write_buffer)
             {
-		kfree(write_buffer);
+		//kfree(write_buffer);
+		PDEBUG("KFREE: kmalloc device ptr->entry.buffer failed; freeing write buffer \n");
 	    }
-		
-		aesd_device_ptr->entry.size = 0;
+	
 		mutex_unlock(&aesd_device_ptr->lock);
 		return retval;
         }
@@ -209,10 +209,10 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 		PDEBUG("aesd_write: realloc failed \n");
 		if (write_buffer)
 		    {
-			kfree(write_buffer);
+			//kfree(write_buffer);
+			PDEBUG("KFREE: krealloc entry.buffer failed; freeing write buffer \n");
 		    }
 	
-		aesd_device_ptr->entry.size = 0;
 		mutex_unlock(&aesd_device_ptr->lock);
 		return -ENOMEM;
 	    }
@@ -238,7 +238,10 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
         {
             old_entry = &aesd_device_ptr->buffer.entry[aesd_device_ptr->buffer.in_offs];      
             if(old_entry->buffptr)
-                kfree(old_entry->buffptr);
+            {
+                //kfree(old_entry->buffptr);
+		PDEBUG("KFREE: freeing oldest entry \n");
+	     }
             old_entry->buffptr = NULL;
             old_entry->size = 0;
         }
@@ -247,6 +250,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 		
         aesd_device_ptr->entry.buffptr = NULL;
         aesd_device_ptr->entry.size = 0;
+        PDEBUG("KFREE: entry.buffer = NULL \n");
     }    
 
     //step 9: update the return value 
@@ -255,7 +259,10 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     //step10: unlock mutex and clean
     mutex_unlock(&aesd_device_ptr->lock); 
     if (write_buffer)
-    	kfree(write_buffer);
+    {
+    	//kfree(write_buffer);
+	PDEBUG("KFREE: freeing write buffer eof \n");
+    }
     PDEBUG("aesd_write: sucess \n");  
     return retval;
 }
