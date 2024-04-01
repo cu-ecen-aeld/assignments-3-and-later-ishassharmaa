@@ -75,23 +75,24 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct
 
 void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const struct aesd_buffer_entry *add_entry)
 {
+    if(!add_entry || !buffer) 
+    {	
+	return;
+    }
+	
     // Step 1: Store buffer entry
-    buffer->entry[buffer->in_offs].buffptr = add_entry->buffptr;
-    buffer->entry[buffer->in_offs].size = add_entry->size;
+    buffer->entry[buffer->in_offs] = *add_entry;
 
     // Step 2: Update/increment the in_offs and handle buffer full condition
     buffer->in_offs = (buffer->in_offs + 1) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
 
-    if (buffer->in_offs == buffer->out_offs) {
-        buffer->full = true;
-        // If buffer is full, move out_offs to make space for the new entry
-        buffer->out_offs = (buffer->out_offs + 1) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
-    }
-
     // Step 3: If buffer is full, move out_offs to prevent exceeding array bounds
-    if (buffer->full) {
-        buffer->out_offs = (buffer->out_offs + 1) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
+    if(buffer->full) 
+    {
+        buffer->out_offs = buffer->in_offs;
     }
+     
+    buffer->full = (buffer->in_offs == buffer->out_offs);
 }
 
 /**
