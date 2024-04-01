@@ -118,7 +118,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     size_t write_buffer_index;
     bool newline_present = false;
 
-    PDEBUG("write %zu bytes with offset %lld",count,*f_pos);
+    
 
     //step1: check args
     if ((filp == NULL) || (buf == NULL))
@@ -133,7 +133,7 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
 		return -EINVAL;
     }
 	
-	
+    PDEBUG("write %zu bytes with offset %lld",count,*f_pos);
     aesd_device_ptr = filp->private_data;
 
     if (!aesd_device_ptr)
@@ -158,8 +158,9 @@ ssize_t aesd_write(struct file *filp, const char __user *buf, size_t count,
     if (retval != 0)
 	{
 	        PDEBUG("aesd_write: copy_from_user failed \n");
+	        if (write_buffer){
 		kfree(write_buffer);
-		PDEBUG("KFREE: copy from user; freeing write buffer \n");
+		PDEBUG("KFREE: copy from user; freeing write buffer \n");}
 		return -EFAULT;
 	}
     	PDEBUG("pass_aesd_write: copy from user passed\n ");
