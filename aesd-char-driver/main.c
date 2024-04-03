@@ -351,14 +351,14 @@ long aesd_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
     long retval = 0;
     struct aesd_seekto seektype_UStoKernel;
 
-    if (_IOC_TYPE(cmd) != SCULL_IOC_MAGIC) return -ENOTTY;
-	if (_IOC_NR(cmd) > SCULL_IOC_MAXNR) return -ENOTTY;
+    if (_IOC_TYPE(cmd) != AESD_IOC_MAGIC) return -ENOTTY;
+	if (_IOC_NR(cmd) > AESDCHAR_IOC_MAXNR) return -ENOTTY;
 
     switch (cmd)
 	{
 		case AESDCHAR_IOCSEEKTO:
 			//step1: copy from user
-			retval = (copy_from_user(&seektype_UStoKernel, (const void __user *)arg, sizeof(seektype_UStoKernel)))
+			retval = (copy_from_user(&seektype_UStoKernel, (const void __user *)arg, sizeof(seektype_UStoKernel)));
             if (retval != 0)
 			{
                 PDEBUG("aesd_ioctl :copy from user fail \n"); 

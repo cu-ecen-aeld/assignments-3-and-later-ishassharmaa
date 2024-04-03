@@ -460,7 +460,7 @@ void *recv_send_thread(void *thread_param)
     */
 
 
-#ifndef USE_AESD_CHAR_DEVICE    
+#if (USE_AESD_CHAR_DEVICE != 1)
     //move to the start of the file
     seekset_to_beg = lseek(logfile_fd, 0, SEEK_SET);
     if(seekset_to_beg == -1)
@@ -596,7 +596,7 @@ int main(int argc, char *argv[])
             /* STEP FOR A6: 
                 set up timestamp
             */
-#if (USE_AESD_CHAR_DEVICE)
+#if (USE_AESD_CHAR_DEVICE != 1)
 		    ret = timestamp_setup();
 		    if(ret == RET_ERROR)
 		    {
