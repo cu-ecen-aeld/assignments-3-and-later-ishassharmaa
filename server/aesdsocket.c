@@ -164,7 +164,9 @@ void signal_handler(int signal_type)
             close(socket_fd);
 	        close(client_fd);
 	        close(logfile_fd);
-            remove(LOG_FILE);
+            #if (USE_AESD_CHAR_DEVICE != 1)
+             remove(LOG_FILE);
+            #endif
             syslog(LOG_INFO,"cleaned up\n");
 
 		  /* Now reraise the signal.  We reactivate the signal’s
@@ -416,7 +418,7 @@ void *recv_send_thread(void *thread_param)
 	
             if(logfile_fd == -1)
             {
-                syslog(LOG_ERR,"rec and send thread; Ioctl log file open failed:  %s\n",strerror(errno));		
+                syslog(LOG_ERR, "rec and send thread; Ioctl log file open failed: errno=%d\n", errno);           
                 return NULL;
             }
         
