@@ -33,6 +33,7 @@ struct aesd_dev
 	struct aesd_circular_buffer buffer; /* circular buffer */
 	struct aesd_buffer_entry entry; /* current entry */
 	struct mutex lock; /* mutex lock */
+	size_t BufferSize; 
 };
 
 
