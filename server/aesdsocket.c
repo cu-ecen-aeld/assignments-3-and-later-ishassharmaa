@@ -34,6 +34,7 @@ Date: Feb 22, 2024
 #include <pthread.h>
 #include <sys/queue.h>
 #include <time.h> 
+#include "../aesd-char-driver/aesd_ioctl.h"
 
 //Defines 
 #define PORT        "9000"
@@ -64,7 +65,7 @@ char read_buf[BUFFER_LEN];
 ssize_t bytes_read =0;
 ssize_t bytes_sent =0;
 char s[INET6_ADDRSTRLEN];
-
+const char *ioctl_str = "AESDCHAR_IOCSEEKTO:";
 int status;
 
 //structure for thread
@@ -102,8 +103,9 @@ pthread_mutex_t mutex;
 
 
 //for timestamp
+#if (USE_AESD_CHAR_DEVICE != 1)
 thread_timestamp_t thread_timestamp;
-
+#endif
 
 //smooth cleaup and termination 
 void cleanup(void)
@@ -162,7 +164,9 @@ void signal_handler(int signal_type)
             close(socket_fd);
 	        close(client_fd);
 	        close(logfile_fd);
-            remove(LOG_FILE);
+            #if (USE_AESD_CHAR_DEVICE != 1)
+             remove(LOG_FILE);
+            #endif
             syslog(LOG_INFO,"cleaned up\n");
 
 		  /* Now reraise the signal.  We reactivate the signal’s
@@ -367,7 +371,8 @@ void *recv_send_thread(void *thread_param)
     memset(read_buf, 0, BUFFER_LEN);
 
     thread_data_t *thread_data = (thread_data_t*)thread_param;
-    
+    int ioctl_retval;
+
     /*STEP 6:
         Logs message to the syslog “Accepted connection from xxx” 
     */
@@ -378,19 +383,19 @@ void *recv_send_thread(void *thread_param)
         Receives data over the connection and appends to file /var/tmp/aesdsocketdata, creating this file if it doesn’t exist.
     */
     //lock mutex
-    status = pthread_mutex_lock(thread_data->thread_mutex);
-    if(status == -1)
-    {
-        syslog(LOG_ERR,"rec and send thread mutex lock failed\n");
-    }
+    // status = pthread_mutex_lock(thread_data->thread_mutex);
+    // if(status == -1)
+    // {
+    //     syslog(LOG_ERR,"rec and send thread mutex lock failed\n");
+    // }
     
     //move to the start of the file
-    off_t seekset_to_beg = lseek(logfile_fd, 0, SEEK_SET);
-    if(seekset_to_beg == -1)
-    {
-        syslog(LOG_ERR,"lseek failed \n");
+    //off_t seekset_to_beg = lseek(logfile_fd, 0, SEEK_SET);
+   // if(seekset_to_beg == -1)
+    // {
+    //     syslog(LOG_ERR,"lseek failed \n");
         
-    }
+    // }
 
     do
     {
@@ -402,42 +407,90 @@ void *recv_send_thread(void *thread_param)
            
         }
         
-        //wrie to log file
-        status = write (logfile_fd, buf, recv_bytes);
-        if (status == -1)
+        ioctl_retval = strncmp(buf, ioctl_str, strlen(ioctl_str));
+        
+        if (ioctl_retval == 0)
         {
-            syslog(LOG_ERR,"logging failed \n");
-           
+            struct aesd_seekto seekto_data;
+            sscanf(buf, "AESDCHAR_IOCSEEKTO:%d,%d", &seekto_data.write_cmd, &seekto_data.write_cmd_offset); 
+            
+            logfile_fd = open(LOG_FILE, O_RDWR | O_APPEND, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IROTH);
+	
+            if(logfile_fd == -1)
+            {
+                syslog(LOG_ERR, "rec and send thread; Ioctl log file open failed: errno=%d\n", errno);           
+                return NULL;
+            }
+        
+            if(ioctl(logfile_fd, AESDCHAR_IOCSEEKTO, &seekto_data) != 0)
+            {
+                syslog(LOG_ERR,"rec and send thread ioctl failed\n ");
+            }
         }
+        else
+        {
+            logfile_fd = open(LOG_FILE, O_RDWR | O_APPEND, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IROTH);
+	
+            if(logfile_fd == -1)
+            {
+                syslog(LOG_ERR,"rec and send thread; Ioctl log file open failed \n");		
+                return NULL;
+            } 
+            status = pthread_mutex_lock(thread_data->thread_mutex);
+            if(status == -1)
+            {
+                syslog(LOG_ERR,"rec and send thread mutex lock failed\n");
+            }
+            //wrie to log file
+            status = write (logfile_fd, buf, recv_bytes);
+            if (status == -1)
+            {
+                syslog(LOG_ERR,"logging failed \n");
+            
+            }
+             //unlock mutex
+            status = pthread_mutex_unlock(thread_data->thread_mutex);
+            if(status == -1)
+            {
+                syslog(LOG_ERR,"rec and send thread mutex unlock failed\n");
+            }
+            close(logfile_fd);
+        }
+        
 
     } while(buf[recv_bytes-1] != '\n');
     
-    //unlock mutex
-    status = pthread_mutex_unlock(thread_data->thread_mutex);
-    if(status == -1)
-    {
-        syslog(LOG_ERR,"rec and send thread mutex unlock failed\n");
-    }
 
     /* STEP 8:
         Returns the full content of /var/tmp/aesdsocketdata to the client as soon as the received data packet completes.
     */
-    //lock mutex
-    status = pthread_mutex_lock(thread_data->thread_mutex);
-    if(status == -1)
+    if(logfile_fd != 0)
     {
-        syslog(LOG_ERR,"rec and send thread mutex lock failed\n");
+            logfile_fd = open(LOG_FILE, O_RDWR | O_APPEND, S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IROTH);
+	
+            if(logfile_fd == -1)
+            {
+                syslog(LOG_ERR,"rec and send thread; Ioctl log file open failed \n");		
+                return NULL;
+            } 
     }
-    
+
+#if (USE_AESD_CHAR_DEVICE != 1)  
     //move to the start of the file
     seekset_to_beg = lseek(logfile_fd, 0, SEEK_SET);
     if(seekset_to_beg == -1)
     {
     syslog(LOG_ERR,"lseek failed \n");
     }
-        
+#endif
+
     do
     {
+        status = pthread_mutex_lock(thread_data->thread_mutex);
+        if(status == -1)
+        {
+            syslog(LOG_ERR,"rec and send thread mutex lock failed\n");
+        }
         bytes_read = read (logfile_fd, read_buf, BUFFER_LEN);
         if (bytes_read == -1)
         {
@@ -447,7 +500,8 @@ void *recv_send_thread(void *thread_param)
         //syslog (LOG_INFO,"read from log\n");
         //syslog (LOG_INFO,"Bytes Read : %ld",bytes_read);
         //syslog (LOG_INFO,"Read Buffer : \n%s",read_buf);
-        
+            //lock mutex
+       
         if(bytes_read > 0)
         {
             bytes_sent = send (thread_data->client_fd, read_buf, bytes_read, 0);
@@ -457,18 +511,18 @@ void *recv_send_thread(void *thread_param)
                 break;
             }
         }
+        //unlock mutex
+        status = pthread_mutex_unlock(thread_data->thread_mutex);
+        if(status == -1)
+        {
+            syslog(LOG_ERR,"rec and send thread mutex unlock failed\n");
+        }
         //syslog (LOG_INFO,"sent to client\n");
         //syslog (LOG_INFO,"Bytes sent : %ld",bytes_sent);
         //syslog (LOG_INFO,"sent read Buffer : \n%s",read_buf);
     
     }while(read_buf[bytes_sent-1] != '\n'&& bytes_read >1);   
-
-    //unlock mutex
-    status = pthread_mutex_unlock(thread_data->thread_mutex);
-    if(status == -1)
-    {
-        syslog(LOG_ERR,"rec and send thread mutex unlock failed\n");
-    }
+   
 
     close(thread_data->client_fd);
     syslog(LOG_INFO,"Closed connection from %s",s);
@@ -521,12 +575,12 @@ int main(int argc, char *argv[])
 	}
 
 	//open log file
-	logfile_fd = open (LOG_FILE,O_RDWR | O_CREAT | O_APPEND , S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IROTH );
+	//logfile_fd = open (LOG_FILE,O_RDWR | O_CREAT | O_APPEND , S_IWUSR | S_IRUSR | S_IWGRP | S_IRGRP | S_IROTH );
 	
-	if(logfile_fd == -1)
-	{
-		syslog(LOG_ERR,"Failed to open log file \n");		
-	}	
+	// if(logfile_fd == -1)
+	// {
+	// 	syslog(LOG_ERR,"Failed to open log file \n");		
+	// }	
 	
 
             /*STEP 1: 

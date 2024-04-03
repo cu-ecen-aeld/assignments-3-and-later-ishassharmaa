@@ -71,34 +71,28 @@ struct aesd_buffer_entry *aesd_circular_buffer_find_entry_offset_for_fpos(struct
 * Any necessary locking must be handled by the caller
 * Any memory referenced in @param add_entry must be allocated by and/or must have a lifetime managed by the caller.
 */
+
+
 void aesd_circular_buffer_add_entry(struct aesd_circular_buffer *buffer, const struct aesd_buffer_entry *add_entry)
 {
-
-    //step1: store buffer entry
-    buffer->entry[buffer->in_offs].buffptr = add_entry->buffptr;
-    buffer->entry[buffer->in_offs].size = add_entry->size;
-
-    //step2: if buffer is not full then check for if in_offs reached the end, if yes then reset to start otherwise increment normally
-    if(buffer->full == false)
-    {
-        //update/increment the in_offs based on if it is at the end or not
-    	buffer->in_offs = (buffer->in_offs + 1) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
-
-        //update flag if full
-       if(buffer->in_offs == buffer->out_offs)
-        {
-            buffer->full = true;
-        }
-
+    if(!add_entry || !buffer) 
+    {	
+	return;
     }
+	
+    // Step 1: Store buffer entry
+    buffer->entry[buffer->in_offs] = *add_entry;
 
-    //step3: if buffer flag if full then increment out_offs along with in_offs
-    else 
+    // Step 2: Update/increment the in_offs and handle buffer full condition
+    buffer->in_offs = (buffer->in_offs + 1) % AESDCHAR_MAX_WRITE_OPERATIONS_SUPPORTED;
+
+    // Step 3: If buffer is full, move out_offs to prevent exceeding array bounds
+    if(buffer->full) 
     {
-        buffer->in_offs++;
-        buffer->out_offs++;
+        buffer->out_offs = buffer->in_offs;
     }
-
+     
+    buffer->full = (buffer->in_offs == buffer->out_offs);
 }
 
 /**
