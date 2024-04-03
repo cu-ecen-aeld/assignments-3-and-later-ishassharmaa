@@ -433,7 +433,7 @@ void *recv_send_thread(void *thread_param)
 	
             if(logfile_fd == -1)
             {
-                syslog(LOG_ERR,"rec and send thread; Ioctl log file open failed \n");		
+                syslog(LOG_ERR,"rec and send thread; log file open failed without ioctl: errno=%d\n", errno);     		
                 return NULL;
             } 
             status = pthread_mutex_lock(thread_data->thread_mutex);
